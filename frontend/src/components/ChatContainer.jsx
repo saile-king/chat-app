@@ -16,16 +16,15 @@ const ChatContainer = () => {
     subscribeToMessages,
     unsubscribeFromMessages,
   } = useChatStore();
+
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
   useEffect(() => {
-    getMessages(selectedUser._id);
-
+    getMessages();
     subscribeToMessages();
-
     return () => unsubscribeFromMessages();
-  }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
+  },[ getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     if (messageEndRef.current && messages) {
@@ -36,16 +35,13 @@ const ChatContainer = () => {
   if (isMessagesLoading) {
     return (
       <div className="flex-1 flex flex-col overflow-auto">
-        <ChatHeader />
         <MessageSkeleton />
         <MessageInput />
       </div>
     );
   }
-
   return (
     <div className="flex-1 flex flex-col overflow-auto">
-      <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
@@ -60,16 +56,19 @@ const ChatContainer = () => {
                   src={
                     message.senderId === authUser._id
                       ? authUser.profilePic || "/avatar.png"
-                      : selectedUser.profilePic || "/avatar.png"
+                      : "/avatar.png"
                   }
                   alt="profile pic"
                 />
               </div>
             </div>
             <div className="chat-header mb-1">
-              <time className="text-xs opacity-50 ml-1">
-                {formatMessageTime(message.createdAt)}
-              </time>
+              <p className={`text-s opacity-50 ml-1 ${message.user.profile === 1 ? 'text-green-400' : 'text-blue-400' } `}>
+                { ` ${message.user.fullName} `}
+              </p>
+              <span className={`text-xs opacity-50 ml-1`}>
+              {(message.user.profile === 1) ? ' Moderador' : 'Estudiante' }
+              </span>
             </div>
             <div className="chat-bubble flex flex-col">
               {message.image && (
@@ -80,6 +79,9 @@ const ChatContainer = () => {
                 />
               )}
               {message.text && <p>{message.text}</p>}
+              <time className="text-xs opacity-50 ml-1">
+                {formatMessageTime(message.createdAt)} 
+              </time>
             </div>
           </div>
         ))}

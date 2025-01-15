@@ -1,5 +1,5 @@
 import User from "../models/user.model.js";
-import Message from "../models/message.model.js";
+import MessageGroup from "../models/messageGroup.model.js";
 
 import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
@@ -18,17 +18,21 @@ export const getUsersForSidebar = async (req, res) => {
 
 export const getMessages = async (req, res) => {
   try {
-    const { id: userToChatId } = req.params;
     const myId = req.user._id;
-
-    const messages = await Message.find({
-      $or: [
-        { senderId: myId, receiverId: userToChatId },
-        { senderId: userToChatId, receiverId: myId },
-      ],
+    io.emit("newMessage", {
+      
     });
+    const messages = await MessageGroup.find().populate("senderId", 'fullName _id profile');
+    const messageParsed = messages.map((message) => {
+      const { senderId, ...rest } = message.toObject()
+      return {
+        ...rest,
+        senderId: senderId._id,
+        user: senderId
+      }
+    })
 
-    res.status(200).json(messages);
+    res.status(200).json(messageParsed);
   } catch (error) {
     console.log("Error in getMessages controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
@@ -38,9 +42,8 @@ export const getMessages = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { text, image } = req.body;
-    const { id: receiverId } = req.params;
+    const { fullName, profile } = req.user;
     const senderId = req.user._id;
-
     let imageUrl;
     if (image) {
       // Upload base64 image to cloudinary
@@ -48,21 +51,25 @@ export const sendMessage = async (req, res) => {
       imageUrl = uploadResponse.secure_url;
     }
 
-    const newMessage = new Message({
+    const newMessage = new MessageGroup({
       senderId,
-      receiverId,
       text,
       image: imageUrl,
     });
 
     await newMessage.save();
 
-    const receiverSocketId = getReceiverSocketId(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+    const response = {
+      ...newMessage.toObject(),
+      user: {
+        fullName,
+        _id: senderId,
+        profile
+      }
     }
 
-    res.status(201).json(newMessage);
+    io.emit("newMessage", response);
+    res.status(201).json(response);
   } catch (error) {
     console.log("Error in sendMessage controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
